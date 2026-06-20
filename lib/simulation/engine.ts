@@ -165,6 +165,11 @@ export const MOCK_PLACES = [
   { id: 'rooftop-lounge',   name: 'Rooftop Lounge',     category: 'Bar',        distanceM: 320,  lat: 28.6148, lng: 77.2100 },
   { id: 'heritage-quarter', name: 'Heritage Quarter',   category: 'Culture',    distanceM: 950,  lat: 28.6120, lng: 77.2060 },
   { id: 'night-bazaar',     name: 'Night Bazaar',       category: 'Market',     distanceM: 1100, lat: 28.6155, lng: 77.2105 },
+  { id: 'baga-beach',       name: 'Baga Beach',         category: 'Beach',      distanceM: 1500, lat: 15.5524, lng: 73.7516 },
+  { id: 'calangute-beach',   name: 'Calangute Beach',     category: 'Beach',      distanceM: 2200, lat: 15.5442, lng: 73.7553 },
+  { id: 'fort-aguada',      name: 'Fort Aguada',        category: 'Culture',    distanceM: 4500, lat: 15.4924, lng: 73.7737 },
+  { id: 'anjuna-market',    name: 'Anjuna Flea Market', category: 'Market',     distanceM: 3800, lat: 15.5798, lng: 73.7386 },
 ] as const;
+
 
 export type PlaceId = typeof MOCK_PLACES[number]['id'];

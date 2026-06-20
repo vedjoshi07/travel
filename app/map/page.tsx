@@ -51,7 +51,7 @@ const crowdLayer = {
   }
 };
 
-// ─── Marker component ─────────────────────────────────────────────────────────
+// ─── Marker component (used in Mapbox view) ───────────────────────────────────
 
 function MapMarker({ place, onClick }: {
   place: typeof MOCK_PLACES[number];
@@ -244,13 +244,14 @@ export default function MapPage() {
   const { activeMapLayers } = useAppStore();
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const [showLayers, setShowLayers] = useState(false);
+  const [activeCity, setActiveCity] = useState<'goa' | 'delhi'>('goa');
 
   const handlePlaceClick = useCallback((id: string) => {
     setSelectedPlace(id);
     setShowLayers(false);
   }, []);
 
-  // Fetch state for all mock places to build geojson
+  // Fetch state for all 12 mock places dynamically to conform to rules of hooks
   const state0 = usePlaceState(MOCK_PLACES[0].id).data;
   const state1 = usePlaceState(MOCK_PLACES[1].id).data;
   const state2 = usePlaceState(MOCK_PLACES[2].id).data;
@@ -259,16 +260,45 @@ export default function MapPage() {
   const state5 = usePlaceState(MOCK_PLACES[5].id).data;
   const state6 = usePlaceState(MOCK_PLACES[6].id).data;
   const state7 = usePlaceState(MOCK_PLACES[7].id).data;
-  const allStates = [state0, state1, state2, state3, state4, state5, state6, state7];
+  const state8 = usePlaceState(MOCK_PLACES[8].id).data;
+  const state9 = usePlaceState(MOCK_PLACES[9].id).data;
+  const state10 = usePlaceState(MOCK_PLACES[10].id).data;
+  const state11 = usePlaceState(MOCK_PLACES[11].id).data;
+
+  const allStates: Record<string, typeof state0> = {
+    'central-park': state0,
+    'lotus-cafe': state1,
+    'riverside-walk': state2,
+    'art-district': state3,
+    'spice-market': state4,
+    'rooftop-lounge': state5,
+    'heritage-quarter': state6,
+    'night-bazaar': state7,
+    'baga-beach': state8,
+    'calangute-beach': state9,
+    'fort-aguada': state10,
+    'anjuna-market': state11,
+  };
 
   const geojsonData: GeoJSON.FeatureCollection = {
     type: 'FeatureCollection',
-    features: MOCK_PLACES.map((p, i) => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-      properties: { crowd: allStates[i]?.crowdPercent ?? 0 }
-    }))
+    features: MOCK_PLACES.slice(0, 8).map((p, i) => {
+      const statesArray = [state0, state1, state2, state3, state4, state5, state6, state7];
+      return {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: { crowd: statesArray[i]?.crowdPercent ?? 0 }
+      };
+    })
   };
+
+  const cityPlaces = MOCK_PLACES.filter(p =>
+    activeCity === 'goa'
+      ? ['baga-beach', 'calangute-beach', 'fort-aguada', 'anjuna-market'].includes(p.id)
+      : !['baga-beach', 'calangute-beach', 'fort-aguada', 'anjuna-market'].includes(p.id)
+  );
+
+  const hasMapboxToken = !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -282,6 +312,7 @@ export default function MapPage() {
         alignItems: 'center',
         zIndex: 10,
         position: 'relative',
+        gap: 8,
       }}>
         <div>
           <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Intelligence Map</h1>
@@ -289,6 +320,49 @@ export default function MapPage() {
             {activeMapLayers.size} layers active
           </p>
         </div>
+
+        {/* City Segmented Control */}
+        <div style={{
+          display: 'flex',
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-surface-border)',
+          borderRadius: 12,
+          padding: 2,
+        }}>
+          <button
+            onClick={() => { setActiveCity('goa'); setSelectedPlace(null); }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 10,
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              background: activeCity === 'goa' ? 'var(--color-accent)' : 'transparent',
+              color: activeCity === 'goa' ? 'white' : 'var(--color-text-secondary)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            Goa 🏖️
+          </button>
+          <button
+            onClick={() => { setActiveCity('delhi'); setSelectedPlace(null); }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 10,
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              background: activeCity === 'delhi' ? 'var(--color-accent)' : 'transparent',
+              color: activeCity === 'delhi' ? 'white' : 'var(--color-text-secondary)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            Delhi 🏙️
+          </button>
+        </div>
+
         <button
           onClick={() => setShowLayers(!showLayers)}
           id="map-layers-btn"
@@ -307,30 +381,52 @@ export default function MapPage() {
         </AnimatePresence>
       </div>
 
-      {/* Real Mapbox canvas */}
+      {/* Map Canvas Section */}
       <div style={{ flex: 1, position: 'relative' }}>
-        <Map
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-          initialViewState={{
-            longitude: 77.2080,
-            latitude: 28.6140,
-            zoom: 14.5
-          }}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
-          onClick={() => setSelectedPlace(null)}
-        >
-          {/* Active layer overlays */}
-          {activeMapLayers.has('crowd') && (
-            <Source type="geojson" data={geojsonData}>
-              <Layer {...(crowdLayer as any)} />
-            </Source>
-          )}
-
-          {/* Place markers */}
-          {MOCK_PLACES.map((place) => (
-            <MapMarker key={place.id} place={place} onClick={handlePlaceClick} />
-          ))}
-        </Map>
+        {activeCity === 'goa' ? (
+          /* Render the user's Goa Google Maps Embed Iframe */
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d492479.75869489636!2d73.67675606180126!3d15.349486416092681!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bbfba106336b741%3A0xeaf887ff62f34092!2sGoa!5e0!3m2!1sen!2sin!4v1781930604141!5m2!1sen!2sin"
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        ) : hasMapboxToken ? (
+          /* Render Mapbox for Delhi if token is set */
+          <Map
+            mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+            initialViewState={{
+              longitude: 77.2080,
+              latitude: 28.6140,
+              zoom: 14.5
+            }}
+            mapStyle="mapbox://styles/mapbox/dark-v11"
+            onClick={() => setSelectedPlace(null)}
+          >
+            {activeMapLayers.has('crowd') && (
+              <Source type="geojson" data={geojsonData}>
+                <Layer {...(crowdLayer as any)} />
+              </Source>
+            )}
+            {MOCK_PLACES.slice(0, 8).map((place) => (
+              <MapMarker key={place.id} place={place} onClick={handlePlaceClick} />
+            ))}
+          </Map>
+        ) : (
+          /* Fallback Google Maps iframe for Delhi if token is missing */
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14008.114886650454!2d77.2065!3d28.614!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390cfd5d347fd7a9%3A0xcb15501d4ca11a!2sNew%20Delhi%2C%20Delhi!5e0!3m2!1sen!2sin!4v1781930604142!5m2!1sen!2sin"
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        )}
 
         {/* Visual placeholders for other layers */}
         {activeMapLayers.has('traffic') && (
@@ -347,6 +443,66 @@ export default function MapPage() {
             pointerEvents: 'none',
           }} aria-hidden="true" />
         )}
+
+        {/* Dynamic City Places Quick-Select Overlay */}
+        <div style={{
+          position: 'absolute',
+          bottom: selectedPlace ? 'calc(var(--nav-height) + 120px)' : '16px',
+          left: 12,
+          right: 12,
+          display: 'flex',
+          gap: 10,
+          overflowX: 'auto',
+          paddingBottom: 6,
+          zIndex: 30,
+        }}>
+          {cityPlaces.map((place) => {
+            const pState = allStates[place.id];
+            const color = !pState ? '#888' :
+              pState.crowdPercent < 35 ? 'var(--color-status-good)' :
+              pState.crowdPercent < 70 ? 'var(--color-status-mid)' :
+              'var(--color-status-bad)';
+
+            return (
+              <motion.button
+                key={place.id}
+                onClick={() => setSelectedPlace(place.id)}
+                className="glass-card"
+                style={{
+                  flexShrink: 0,
+                  width: 150,
+                  padding: '10px 12px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  border: selectedPlace === place.id ? '2px solid var(--color-accent)' : '1px solid var(--color-surface-border)',
+                  background: 'var(--color-surface)',
+                  backdropFilter: 'blur(10px)',
+                }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {place.name}
+                </div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--color-accent-glow)', marginBottom: 6 }}>
+                  {place.category}
+                </div>
+                {pState && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)' }}>
+                      Crowd: {pState.crowdPercent}%
+                    </span>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: color,
+                      boxShadow: `0 0 6px ${color}`,
+                    }} />
+                  </div>
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
 
         {/* Layer badges */}
         <div style={{
@@ -376,7 +532,7 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Place popup */}
+      {/* Place popup details overlay */}
       <AnimatePresence>
         {selectedPlace && (
           <div style={{
