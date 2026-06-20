@@ -1,9 +1,9 @@
 'use client';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { useSyncExternalStore } from 'react';
 import { Sparkles, Compass } from 'lucide-react';
 import { useCityState } from '@/lib/hooks/use-city-state';
+import { useNow } from '@/lib/hooks/use-now';
 import { usePlaceState } from '@/lib/hooks/use-place-state';
 import { useSimClock } from '@/lib/simulation/sim-clock-context';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
@@ -22,18 +22,9 @@ import { useAppStore } from '@/lib/store/app-store';
 function LiveClock() {
   const { simOffsetMinutes } = useSimClock();
   const locale = useAppStore((s) => s.locale);
-  // useSyncExternalStore keeps the SSR-safe "now" snapshot outside the
-  // effect lifecycle and avoids the React 19 setState-in-effect warning.
-  const tick = useSyncExternalStore(
-    (notify) => {
-      const id = setInterval(notify, 1000);
-      return () => clearInterval(id);
-    },
-    () => new Date(),
-    () => null,
-  );
+  const tick = useNow();
 
-  if (!tick) return <span className="text-mono" aria-hidden="true">--:--</span>;
+  if (!tick) return <span className="text-mono" aria-hidden="true" suppressHydrationWarning>--:--</span>;
 
   const display = new Date(tick.getTime() + simOffsetMinutes * 60_000);
   const isSimulated = simOffsetMinutes !== 0;
@@ -337,14 +328,17 @@ function labelForKind(k: 'quietest' | 'best' | 'peak'): string {
 export default function HomePage() {
   const { simOffsetMinutes } = useSimClock();
   const userPreferences = useAppStore((s) => s.userPreferences);
+  const now = useNow();
 
-  const simMinutes =
-    new Date().getHours() * 60 + new Date().getMinutes() + simOffsetMinutes;
-  const simHour = ((simMinutes % (24 * 60)) + 24 * 60) / 60;
-  const greeting =
-    simHour < 5 ? 'Good night' :
-    simHour < 12 ? 'Good morning' :
-    simHour < 17 ? 'Good afternoon' : 'Good evening';
+  let greeting = 'Welcome';
+  if (now) {
+    const simMinutes = now.getHours() * 60 + now.getMinutes() + simOffsetMinutes;
+    const simHour = ((simMinutes % (24 * 60)) + 24 * 60) / 60;
+    greeting =
+      simHour < 5 ? 'Good night' :
+      simHour < 12 ? 'Good morning' :
+      simHour < 17 ? 'Good afternoon' : 'Good evening';
+  }
 
   const states = useAllPlaceStates();
   const nearbyPlaces = MOCK_PLACES.slice(0, 6);

@@ -136,7 +136,7 @@ export default function ChatPage() {
         id: `msg-${messageCounter++}`,
         role: 'assistant',
         parsed,
-        text: "I couldn't generate a plan right now. Try a shorter request, or check that NEXT_PUBLIC_GEMINI_API_KEY is set in .env.local.",
+        text: "I couldn't generate a plan right now. Try a shorter request.",
         ok: false,
       }]);
     }

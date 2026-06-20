@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell, BellOff, TrendingUp } from 'lucide-react';
 import { usePlaceState } from '@/lib/hooks/use-place-state';
 import { useForecast } from '@/lib/hooks/use-forecast';
+import { useNow } from '@/lib/hooks/use-now';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
 import { PredictionGraph } from '@/components/prediction-graph/PredictionGraph';
 import { AlertBanner } from '@/components/alert-banner/AlertBanner';
@@ -21,14 +22,14 @@ export default function ForecastClientPage({ id }: { id: string }) {
   const [watching, setWatching] = useState(true);
 
   // Build series from forecast
-  const now = new Date();
-  const series = forecast?.map((f, i) => {
+  const now = useNow();
+  const series = forecast && now ? forecast.map((f, i) => {
     const h = new Date(now.getTime() + i * 3600_000);
     return {
       hour: h.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
       crowdPercent: f.crowdPercent,
     };
-  }) ?? [];
+  }) : [];
 
   // Best 2-hour window
   let bestStart = 0;

@@ -5,9 +5,9 @@ import {
   ArrowLeft, MapPin, Clock, Volume2, Star,
   TrendingUp, Navigation, Bell, BellOff, Share2
 } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
 import { usePlaceState } from '@/lib/hooks/use-place-state';
 import { useForecast } from '@/lib/hooks/use-forecast';
+import { useNow } from '@/lib/hooks/use-now';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
 import { PlaceImage } from '@/components/place-image/PlaceImage';
 import { NexusRing } from '@/components/nexus-ring/NexusRing';
@@ -32,16 +32,7 @@ export default function PlaceClientPage({ id }: { id: string }) {
   const { data: state } = usePlaceState(id);
   const { data: forecast } = useForecast(id, 12);
 
-  // Live "as of" clock. useSyncExternalStore avoids the React 19 setState-in-
-  // effect warning while keeping SSR happy (server snapshot returns null).
-  const now = useSyncExternalStore(
-    (notify) => {
-      const id = setInterval(notify, 1000);
-      return () => clearInterval(id);
-    },
-    () => new Date(),
-    () => null,
-  );
+  const now = useNow();
 
   const watching = watchedPlaces.includes(id);
 

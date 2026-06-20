@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { TrendingUp } from 'lucide-react';
 import { useForecast } from '@/lib/hooks/use-forecast';
+import { useNow } from '@/lib/hooks/use-now';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
 import { PredictionGraph } from '@/components/prediction-graph/PredictionGraph';
 import { PlaceImage } from '@/components/place-image/PlaceImage';
@@ -46,14 +47,14 @@ function ForecastCard({ place, onSelect }: {
   onSelect: () => void;
 }) {
   const { data: forecast } = useForecast(place.id, 12);
-  const now = new Date();
-  const series = forecast?.map((f, i) => {
+  const now = useNow();
+  const series = forecast && now ? forecast.map((f, i) => {
     const h = new Date(now.getTime() + i * 3600_000);
     return {
       hour: h.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
       crowdPercent: f.crowdPercent,
     };
-  }) ?? [];
+  }) : [];
 
   return (
     <motion.div

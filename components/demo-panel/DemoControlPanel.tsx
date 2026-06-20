@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ChevronDown, ChevronUp, RotateCcw, FastForward } from 'lucide-react';
 import { useSimClock } from '@/lib/simulation/sim-clock-context';
+import { useNow } from '@/lib/hooks/use-now';
 
 function formatSimTime(baseDate: Date, offsetMinutes: number): string {
   const simDate = new Date(baseDate.getTime() + offsetMinutes * 60_000);
@@ -25,10 +26,8 @@ export function DemoControlPanel() {
   const { simOffsetMinutes, setSimOffset, reset } = useSimClock();
   const [expanded, setExpanded] = useState(false);
 
-  // Compute the displayed sim time fresh on every render — simOffsetMinutes
-  // updates whenever the user clicks a preset or drags the slider, so the
-  // wall-clock base doesn't need to be captured.
-  const simTime = formatSimTime(new Date(), simOffsetMinutes);
+  const now = useNow();
+  const simTime = now ? formatSimTime(now, simOffsetMinutes) : '--:--';
   const isOffset = simOffsetMinutes !== 0;
 
   function setToHour(hour: number) {
