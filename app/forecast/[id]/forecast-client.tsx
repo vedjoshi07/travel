@@ -179,6 +179,7 @@ export default function ForecastClientPage({ id }: { id: string }) {
               name={alt.name}
               category={alt.category}
               distanceM={alt.distanceM}
+              imageUrl={alt.imageUrl}
             />
           ))}
         </div>

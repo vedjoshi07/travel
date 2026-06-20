@@ -10,6 +10,7 @@ import { useAppStore, LayerId } from '@/lib/store/app-store';
 import { usePlaceState } from '@/lib/hooks/use-place-state';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
 import { CrowdMeter } from '@/components/crowd-meter/CrowdMeter';
+import { PlaceImage } from '@/components/place-image/PlaceImage';
 import { useRouter } from 'next/navigation';
 
 // ─── Layer definitions ────────────────────────────────────────────────────────
@@ -139,6 +140,17 @@ function PlacePopup({ placeId, onClose }: { placeId: string; onClose: () => void
           <X size={16} color="var(--color-text-muted)" />
         </button>
       </div>
+      {place.imageUrl && (
+        <div style={{ marginBottom: 12 }}>
+          <PlaceImage
+            src={place.imageUrl}
+            alt={place.name}
+            category={place.category}
+            height={140}
+            rounded={12}
+          />
+        </div>
+      )}
       {state && (
         <div style={{ marginBottom: 12 }}>
           <CrowdMeter percent={state.crowdPercent} size="lg" showLabel={true} />

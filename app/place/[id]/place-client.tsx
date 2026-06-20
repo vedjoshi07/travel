@@ -11,6 +11,7 @@ import { MOCK_PLACES } from '@/lib/simulation/engine';
 import { CrowdMeter } from '@/components/crowd-meter/CrowdMeter';
 import { ExperienceScore } from '@/components/experience-score/ExperienceScore';
 import { PredictionGraph } from '@/components/prediction-graph/PredictionGraph';
+import { PlaceImage } from '@/components/place-image/PlaceImage';
 
 function formatDistance(m: number) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
@@ -110,6 +111,25 @@ export default function PlaceClientPage({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {/* Hero image */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        style={{ marginBottom: 14 }}
+      >
+        <PlaceImage
+          src={place.imageUrl}
+          alt={place.name}
+          category={place.category}
+          height={200}
+          rounded={20}
+          credit={place.imageCredit}
+          showCredit
+          priority
+        />
+      </motion.div>
 
       {/* Hero metrics */}
       <motion.div

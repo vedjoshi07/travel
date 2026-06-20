@@ -5,6 +5,7 @@ import { TrendingUp } from 'lucide-react';
 import { useForecast } from '@/lib/hooks/use-forecast';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
 import { PredictionGraph } from '@/components/prediction-graph/PredictionGraph';
+import { PlaceImage } from '@/components/place-image/PlaceImage';
 
 // Default /forecast route — shows top 6 places in a responsive 2-col grid
 // on wider viewports, single-col on phones. Each card links to its full
@@ -68,6 +69,16 @@ function ForecastCard({ place, onSelect }: {
       onKeyDown={(e) => e.key === 'Enter' && onSelect()}
       aria-label={`View full forecast for ${place.name}`}
     >
+      {/* Thumbnail */}
+      <div style={{ marginBottom: 10 }}>
+        <PlaceImage
+          src={place.imageUrl}
+          alt={place.name}
+          category={place.category}
+          height={110}
+          rounded={12}
+        />
+      </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{place.name}</div>

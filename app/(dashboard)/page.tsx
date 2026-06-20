@@ -251,6 +251,8 @@ function SmartHero() {
       etaMinutes={Math.ceil(best.place.distanceM / 80)}
       crowdPercent={state?.crowdPercent}
       experienceScore={state?.experienceScore}
+      imageUrl={best.place.imageUrl}
+      category={best.place.category}
       actions={{
         primary: { label: 'View Details', onClick: () => router.push(`/place/${best.place.id}`) },
         secondary: { label: 'Plan Trip', onClick: () => router.push('/chat') },
@@ -502,6 +504,7 @@ export default function HomePage() {
                 name={place.name}
                 category={place.category}
                 distanceM={place.distanceM}
+                imageUrl={place.imageUrl}
               />
             </motion.div>
           ))}

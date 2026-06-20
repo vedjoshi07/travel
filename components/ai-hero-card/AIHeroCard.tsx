@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Navigation, ArrowRight } from 'lucide-react';
 
@@ -12,6 +13,8 @@ interface AIHeroCardProps {
   };
   crowdPercent?: number;
   experienceScore?: number;
+  imageUrl?: string;
+  category?: string;
 }
 
 export function AIHeroCard({
@@ -21,7 +24,13 @@ export function AIHeroCard({
   actions,
   crowdPercent,
   experienceScore,
+  imageUrl,
+  category,
 }: AIHeroCardProps) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgErrored, setImgErrored] = useState(false);
+  const showImage = !!imageUrl && !imgErrored;
+
   return (
     <motion.div
       className="glass-card-accent"
@@ -43,6 +52,62 @@ export function AIHeroCard({
         background: 'radial-gradient(circle, rgba(123,92,250,0.18) 0%, transparent 70%)',
         pointerEvents: 'none',
       }} />
+
+      {/* Hero image (optional) — sits behind content, faded in once loaded */}
+      {showImage && (
+        <div style={{
+          position: 'relative',
+          margin: '-20px -20px 16px',
+          height: 160,
+          overflow: 'hidden',
+          background: 'var(--color-surface-border)',
+        }}>
+          {!imgLoaded && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 100%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.6s ease-in-out infinite',
+            }} aria-hidden="true" />
+          )}
+          <motion.img
+            src={imageUrl}
+            alt={placeName}
+            loading="eager"
+            decoding="async"
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgErrored(true)}
+            initial={{ opacity: 0, scale: 1.05 }}
+            animate={{ opacity: imgLoaded ? 1 : 0, scale: imgLoaded ? 1 : 1.05 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+          {/* Category chip on the image */}
+          {category && imgLoaded && (
+            <span style={{
+              position: 'absolute', top: 10, left: 10,
+              fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              background: 'rgba(10, 14, 26, 0.75)',
+              color: 'white',
+              padding: '4px 9px',
+              borderRadius: 100,
+              backdropFilter: 'blur(8px)',
+            }}>{category}</span>
+          )}
+          {/* Bottom fade so text below reads cleanly */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to top, rgba(10,14,26,0.85) 0%, transparent 50%)',
+            pointerEvents: 'none',
+          }} aria-hidden="true" />
+        </div>
+      )}
 
       {/* AI label */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>

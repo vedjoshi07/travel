@@ -155,20 +155,89 @@ export function getForecast(placeId: string, hoursAhead: number, clock: SimClock
 }
 
 // ─── Mock place catalogue ─────────────────────────────────────────────────────
+//
+// `imageUrl` and `imageCredit` reference freely-licensed Wikimedia Commons
+// photographs that have been downloaded to public/places/ at build time.
+// Keeping them local means:
+//  - the deployed static site loads them at /travel/places/<id>.jpg
+//  - we never depend on a third-party CDN at runtime
+//  - the images are committed to the repo so a fresh clone has them
+//
+// `PlaceImage` falls back to a category-tinted gradient if the file is missing.
 
 export const MOCK_PLACES = [
-  { id: 'central-park',     name: 'Central Park',       category: 'Park',       distanceM: 420,  lat: 28.6139, lng: 77.2090 },
-  { id: 'lotus-cafe',       name: 'Lotus Café',         category: 'Café',       distanceM: 180,  lat: 28.6145, lng: 77.2095 },
-  { id: 'riverside-walk',   name: 'Riverside Walk',     category: 'Walk',       distanceM: 750,  lat: 28.6130, lng: 77.2070 },
-  { id: 'art-district',     name: 'Art District',       category: 'Culture',    distanceM: 1200, lat: 28.6160, lng: 77.2110 },
-  { id: 'spice-market',     name: 'Spice Market',       category: 'Market',     distanceM: 600,  lat: 28.6135, lng: 77.2080 },
-  { id: 'rooftop-lounge',   name: 'Rooftop Lounge',     category: 'Bar',        distanceM: 320,  lat: 28.6148, lng: 77.2100 },
-  { id: 'heritage-quarter', name: 'Heritage Quarter',   category: 'Culture',    distanceM: 950,  lat: 28.6120, lng: 77.2060 },
-  { id: 'night-bazaar',     name: 'Night Bazaar',       category: 'Market',     distanceM: 1100, lat: 28.6155, lng: 77.2105 },
-  { id: 'baga-beach',       name: 'Baga Beach',         category: 'Beach',      distanceM: 1500, lat: 15.5524, lng: 73.7516 },
-  { id: 'calangute-beach',   name: 'Calangute Beach',     category: 'Beach',      distanceM: 2200, lat: 15.5442, lng: 73.7553 },
-  { id: 'fort-aguada',      name: 'Fort Aguada',        category: 'Culture',    distanceM: 4500, lat: 15.4924, lng: 73.7737 },
-  { id: 'anjuna-market',    name: 'Anjuna Flea Market', category: 'Market',     distanceM: 3800, lat: 15.5798, lng: 73.7386 },
+  {
+    id: 'central-park',     name: 'Central Park',       category: 'Park',
+    distanceM: 420,  lat: 28.6139, lng: 77.2090,
+    imageUrl: '/places/central-park.jpg',
+    imageCredit: 'Central Park by Anthony Quintano / Wikimedia Commons (CC BY 2.0)',
+  },
+  {
+    id: 'lotus-cafe',       name: 'Lotus Café',         category: 'Café',
+    distanceM: 180,  lat: 28.6145, lng: 77.2095,
+    imageUrl: '/places/lotus-cafe.jpg',
+    imageCredit: 'Café interior — Wikimedia Commons (CC BY-SA)',
+  },
+  {
+    id: 'riverside-walk',   name: 'Riverside Walk',     category: 'Walk',
+    distanceM: 750,  lat: 28.6130, lng: 77.2070,
+    imageUrl: '/places/riverside-walk.jpg',
+    imageCredit: 'Walkway Over the Hudson by Famartin / Wikimedia Commons (CC BY-SA 4.0)',
+  },
+  {
+    id: 'art-district',     name: 'Art District',       category: 'Culture',
+    distanceM: 1200, lat: 28.6160, lng: 77.2110,
+    imageUrl: '/places/art-district.jpg',
+    imageCredit: 'Lodhi Art District mural — Wikimedia Commons (CC BY-SA)',
+  },
+  {
+    id: 'spice-market',     name: 'Spice Market',       category: 'Market',
+    distanceM: 600,  lat: 28.6135, lng: 77.2080,
+    imageUrl: '/places/spice-market.jpg',
+    imageCredit: 'Khari Baoli by Gopal Dudeja / Wikimedia Commons (CC BY-SA 4.0)',
+  },
+  {
+    id: 'rooftop-lounge',   name: 'Rooftop Lounge',     category: 'Bar',
+    distanceM: 320,  lat: 28.6148, lng: 77.2100,
+    imageUrl: '/places/rooftop-lounge.jpg',
+    imageCredit: 'Sky Bar — Wikimedia Commons (CC BY-SA)',
+  },
+  {
+    id: 'heritage-quarter', name: 'Heritage Quarter',   category: 'Culture',
+    distanceM: 950,  lat: 28.6120, lng: 77.2060,
+    imageUrl: '/places/heritage-quarter.jpg',
+    imageCredit: 'Shahjahanabad — Wikimedia Commons (Public Domain)',
+  },
+  {
+    id: 'night-bazaar',     name: 'Night Bazaar',       category: 'Market',
+    distanceM: 1100, lat: 28.6155, lng: 77.2105,
+    imageUrl: '/places/night-bazaar.jpg',
+    imageCredit: 'Shilin Night Market — Wikimedia Commons (CC BY-SA)',
+  },
+  {
+    id: 'baga-beach',       name: 'Baga Beach',         category: 'Beach',
+    distanceM: 1500, lat: 15.5524, lng: 73.7516,
+    imageUrl: '/places/baga-beach.jpg',
+    imageCredit: 'Baga Beach, Goa by Bernard Gagnon / Wikimedia Commons (CC BY-SA 3.0)',
+  },
+  {
+    id: 'calangute-beach',  name: 'Calangute Beach',    category: 'Beach',
+    distanceM: 2200, lat: 15.5442, lng: 73.7553,
+    imageUrl: '/places/calangute-beach.jpg',
+    imageCredit: 'Calangute sunset — Wikimedia Commons (CC BY-SA)',
+  },
+  {
+    id: 'fort-aguada',      name: 'Fort Aguada',        category: 'Culture',
+    distanceM: 4500, lat: 15.4924, lng: 73.7737,
+    imageUrl: '/places/fort-aguada.jpg',
+    imageCredit: 'Fort Aguada — Wikimedia Commons (CC BY-SA)',
+  },
+  {
+    id: 'anjuna-market',    name: 'Anjuna Flea Market', category: 'Market',
+    distanceM: 3800, lat: 15.5798, lng: 73.7386,
+    imageUrl: '/places/anjuna-market.jpg',
+    imageCredit: 'Anjuna Beach, Goa by Yathin S Krishnappa / Wikimedia Commons (CC BY-SA 3.0)',
+  },
 ] as const;
 
 

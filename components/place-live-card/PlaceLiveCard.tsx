@@ -5,12 +5,14 @@ import { MapPin, Clock, ChevronRight } from 'lucide-react';
 import { usePlaceState } from '@/lib/hooks/use-place-state';
 import { CrowdMeter } from '@/components/crowd-meter/CrowdMeter';
 import { ExperienceScore } from '@/components/experience-score/ExperienceScore';
+import { PlaceImage } from '@/components/place-image/PlaceImage';
 
 interface PlaceLiveCardProps {
   placeId: string;
   name: string;
   category: string;
   distanceM: number;
+  imageUrl?: string;
   onSelect?: (placeId: string) => void;
   variant?: 'default' | 'compact';
 }
@@ -24,6 +26,7 @@ export function PlaceLiveCard({
   name,
   category,
   distanceM,
+  imageUrl,
   onSelect,
   variant = 'default',
 }: PlaceLiveCardProps) {
@@ -64,6 +67,19 @@ export function PlaceLiveCard({
         borderRadius: '0 2px 2px 0',
         background: 'linear-gradient(to bottom, var(--color-accent), transparent)',
       }} />
+
+      {/* Thumbnail — sits behind the text on default, hidden on compact */}
+      {variant === 'default' && (
+        <div style={{ marginLeft: 8, marginRight: 0 }}>
+          <PlaceImage
+            src={imageUrl}
+            alt={name}
+            category={category}
+            height={130}
+            rounded={12}
+          />
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingLeft: 8 }}>
