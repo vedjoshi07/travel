@@ -1,5 +1,5 @@
 'use client';
-import { motion, useSpring, useTransform, animate } from 'framer-motion';
+import { animate } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 

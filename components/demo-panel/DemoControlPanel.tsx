@@ -24,16 +24,22 @@ const TIME_PRESETS = [
 export function DemoControlPanel() {
   const { simOffsetMinutes, setSimOffset, reset } = useSimClock();
   const [expanded, setExpanded] = useState(false);
-  const now = new Date();
+
+  // Compute the displayed sim time fresh on every render — simOffsetMinutes
+  // updates whenever the user clicks a preset or drags the slider, so the
+  // wall-clock base doesn't need to be captured.
+  const simTime = formatSimTime(new Date(), simOffsetMinutes);
+  const isOffset = simOffsetMinutes !== 0;
 
   function setToHour(hour: number) {
+    // Capture the wall-clock NOW inside the click handler — capturing it at
+    // component-mount time goes stale as the user lingers on the page and
+    // preset offsets drift by minutes.
+    const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
     const diff = hour - currentHour;
     setSimOffset(diff * 60);
   }
-
-  const simTime = formatSimTime(now, simOffsetMinutes);
-  const isOffset = simOffsetMinutes !== 0;
 
   return (
     <div

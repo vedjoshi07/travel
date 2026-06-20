@@ -155,6 +155,11 @@ function SmartHero() {
     { place: MOCK_PLACES[5], hook: usePlaceState('rooftop-lounge') },
   ];
 
+  // While any of the 4 candidate queries is still loading, none of them
+  // has a real experienceScore — comparing undefined-with-default-0 picks an
+  // arbitrary winner. Render a skeleton variant of the hero card instead.
+  const anyLoading = candidates.some((c) => c.hook.isLoading);
+  const allLoaded = candidates.every((c) => !c.hook.isLoading && c.hook.data);
   const best = candidates.reduce((prev, cur) =>
     (cur.hook.data?.experienceScore ?? 0) > (prev.hook.data?.experienceScore ?? 0) ? cur : prev
   );
@@ -192,6 +197,52 @@ function SmartHero() {
   };
 
   const reasons = reasonsMap[best.place.id] ?? reasonsMap['central-park'];
+
+  // Skeleton fallback: render the same glass-card-accent shell with
+  // shimmering placeholder content so the layout doesn't jump on first paint.
+  if (anyLoading || !allLoaded) {
+    return (
+      <div
+        className="glass-card-accent"
+        style={{ padding: 20, position: 'relative', overflow: 'hidden' }}
+        role="region"
+        aria-label="AI recommendation — loading"
+        aria-busy="true"
+      >
+        <div style={{
+          fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em',
+          textTransform: 'uppercase', color: 'var(--color-accent-glow)', marginBottom: 12,
+        }}>
+          AI Recommendation
+        </div>
+        <div style={{
+          height: 28, width: '60%', borderRadius: 8,
+          background: 'linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.10), rgba(255,255,255,0.04))',
+          backgroundSize: '200% 100%',
+          animation: 'shimmer 1.6s ease-in-out infinite',
+          marginBottom: 14,
+        }} />
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{
+              height: 22, width: 76, borderRadius: 100,
+              background: 'rgba(255,255,255,0.05)',
+              animation: 'pulse 1.5s ease-in-out infinite',
+            }} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} style={{
+              height: 12, width: `${85 - i * 6}%`, borderRadius: 4,
+              background: 'rgba(255,255,255,0.04)',
+              animation: 'pulse 1.5s ease-in-out infinite',
+            }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AIHeroCard

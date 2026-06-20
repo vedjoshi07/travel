@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, X, CheckCircle } from 'lucide-react';
 import Map, { Source, Layer, Marker } from 'react-map-gl/mapbox';
+import type { HeatmapLayerSpecification } from 'react-map-gl/mapbox';
 
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useAppStore, LayerId } from '@/lib/store/app-store';
@@ -29,7 +30,7 @@ const STUB_LAYERS: { id: LayerId; label: string }[] = [
 
 // ─── Mapbox Layers ────────────────────────────────────────────────────────────
 
-const crowdLayer = {
+const crowdLayer: HeatmapLayerSpecification = {
   id: 'crowd-heat',
   type: 'heatmap' as const,
   source: 'crowd-data',
@@ -408,7 +409,7 @@ export default function MapPage() {
           >
             {activeMapLayers.has('crowd') && (
               <Source type="geojson" data={geojsonData}>
-                <Layer {...(crowdLayer as any)} />
+                <Layer {...crowdLayer} />
               </Source>
             )}
             {MOCK_PLACES.slice(0, 8).map((place) => (

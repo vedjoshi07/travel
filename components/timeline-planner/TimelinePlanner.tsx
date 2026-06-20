@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { Clock, MapPin, IndianRupee, CheckCircle2 } from 'lucide-react';
+import { Clock, IndianRupee, CheckCircle2 } from 'lucide-react';
 import type { TimelineStep } from '@/lib/itinerary/mock-itinerary';
 
 interface TimelinePlannerProps {

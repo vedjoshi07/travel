@@ -6,10 +6,12 @@ import { useForecast } from '@/lib/hooks/use-forecast';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
 import { PredictionGraph } from '@/components/prediction-graph/PredictionGraph';
 
-// Default /forecast route — shows top 3 places
+// Default /forecast route — shows top 6 places in a responsive 2-col grid
+// on wider viewports, single-col on phones. Each card links to its full
+// forecast view at /forecast/[id].
 export default function ForecastIndexPage() {
   const router = useRouter();
-  const topPlaces = MOCK_PLACES.slice(0, 3);
+  const topPlaces = MOCK_PLACES.slice(0, 6);
 
   return (
     <div className="page-container">
@@ -23,7 +25,13 @@ export default function ForecastIndexPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+          gap: 14,
+        }}
+      >
         {topPlaces.map((place) => (
           <ForecastCard key={place.id} place={place} onSelect={() => router.push(`/forecast/${place.id}`)} />
         ))}
