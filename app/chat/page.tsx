@@ -2,17 +2,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, RefreshCw, MessageSquare } from 'lucide-react';
-import { parsePrompt } from '@/lib/itinerary/parse-prompt';
-import { generateItinerary, ItineraryResponse } from '@/lib/itinerary/mock-itinerary';
+import { generateItineraryWithGemini } from '@/lib/itinerary/gemini-itinerary';
+import type { ItineraryResponse } from '@/lib/itinerary/mock-itinerary';
 import { TimelinePlanner } from '@/components/timeline-planner/TimelinePlanner';
 
 let messageCounter = 1;
 
 const QUICK_PROMPTS = [
-  'Peaceful evening, ₹500 budget, 2 hours',
-  'Quick cultural visit this afternoon',
-  'Romantic dinner spot, ₹2000, quiet',
-  'Budget morning walk, free activities',
+  'Plan a peaceful evening with ₹500 budget for 2 hours',
+  'Suggest a quick cultural visit this afternoon',
+  'Find a romantic dinner spot, up to ₹2000, quiet atmosphere',
+  'A budget-friendly morning walk with free activities',
 ];
 
 interface Message {
@@ -61,20 +61,24 @@ export default function ChatPage() {
     setInput('');
     setIsThinking(true);
 
-    // Simulate a short AI "thinking" delay
-    await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
-
-    const intent = parsePrompt(text);
-    const itinerary = generateItinerary(intent);
-
-    const aiMsg: Message = {
-      id: `msg-${messageCounter++}`,
-      role: 'assistant',
-      text: itinerary.summary,
-      itinerary,
-    };
-
-    setMessages((prev) => [...prev, aiMsg]);
+    try {
+      const itinerary = await generateItineraryWithGemini(text);
+      const aiMsg: Message = {
+        id: `msg-${messageCounter++}`,
+        role: 'assistant',
+        text: itinerary.summary,
+        itinerary,
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch {
+      // Fallback: show a friendly error
+      const aiMsg: Message = {
+        id: `msg-${messageCounter++}`,
+        role: 'assistant',
+        text: "I couldn't generate a plan right now. Make sure you've set your Gemini API key in `.env.local` as `NEXT_PUBLIC_GEMINI_API_KEY`.",
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    }
     setIsThinking(false);
   }
 

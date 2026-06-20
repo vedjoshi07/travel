@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { User, Settings, MapPin, Heart, Zap, ChevronRight, Wallet, Footprints } from 'lucide-react';
+import { User, Settings, MapPin, Heart, Zap, ChevronRight, Wallet, Footprints, Camera } from 'lucide-react';
 import { useAppStore } from '@/lib/store/app-store';
 import { useRouter } from 'next/navigation';
 
@@ -168,6 +168,13 @@ export default function ProfilePage() {
               value: 'Create a new itinerary →',
               id: 'profile-ai-btn',
               onClick: () => router.push('/chat'),
+            },
+            {
+              icon: <Camera size={14} aria-hidden="true" />,
+              label: 'Image Search',
+              value: 'Search Pexels photos →',
+              id: 'profile-search-btn',
+              onClick: () => router.push('/search'),
             },
           ].map((item, i, arr) => (
             <button
