@@ -1,36 +1,90 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+/**
+ * AI Command Center — structured, parse-confirm, then plan.
+ *
+ * Why this isn't a chat-bubble UI: a generic chatbot interface hides what the
+ * AI actually understood. NEXUS shows the parsed constraints as chips
+ * (budget, mood, time, walking) *before* generating the itinerary, so the
+ * user can see the model understood their request. The brief calls this out
+ * as the strongest existing pattern — keep it distinct, not chat-bubbly.
+ */
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, RefreshCw, MessageSquare } from 'lucide-react';
+import { Send, Sparkles, RefreshCw, Wand2, Check } from 'lucide-react';
 import { generateItineraryWithGemini } from '@/lib/itinerary/gemini-itinerary';
+import { generateItinerary as generateMockItinerary } from '@/lib/itinerary/mock-itinerary';
+import { parsePrompt } from '@/lib/itinerary/parse-prompt';
+import { formatCurrency } from '@/lib/locale';
 import type { ItineraryResponse } from '@/lib/itinerary/mock-itinerary';
 import { TimelinePlanner } from '@/components/timeline-planner/TimelinePlanner';
+import { NexusRing } from '@/components/nexus-ring/NexusRing';
+import { useAppStore } from '@/lib/store/app-store';
 
 let messageCounter = 1;
 
 const QUICK_PROMPTS = [
-  'Plan a peaceful evening with ₹500 budget for 2 hours',
-  'Suggest a quick cultural visit this afternoon',
-  'Find a romantic dinner spot, up to ₹2000, quiet atmosphere',
-  'A budget-friendly morning walk with free activities',
+  { icon: '🌅', text: 'Peaceful evening under ₹500' },
+  { icon: '🏛️', text: 'Quick cultural visit, 1 hour' },
+  { icon: '🌹', text: 'Romantic dinner, ₹2000 budget' },
+  { icon: '🌊', text: 'Free morning walk outdoors' },
 ];
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   text?: string;
+  parsed?: ReturnType<typeof parsePrompt>;
   itinerary?: ItineraryResponse;
+  /** Set to true if generation succeeded. */
+  ok?: boolean;
+}
+
+function ChipList({ parsed, locale, currency, hour12 }: {
+  parsed: ReturnType<typeof parsePrompt>;
+  locale: string;
+  currency: string;
+  hour12: boolean;
+}) {
+  const chips: { id: string; label: string }[] = [];
+  if (parsed.budgetInr != null) {
+    chips.push({ id: 'budget', label: formatCurrency(parsed.budgetInr, { locale: locale as never, currency: currency as never, distanceUnit: 'km', hour12 }) });
+  }
+  if (parsed.durationHours != null) {
+    chips.push({ id: 'time', label: parsed.durationHours < 1 ? `${Math.round(parsed.durationHours * 60)} min` : `${parsed.durationHours}h` });
+  }
+  if (parsed.timeOfDay) {
+    chips.push({ id: 'tod', label: parsed.timeOfDay });
+  }
+  for (const m of parsed.mood) chips.push({ id: `mood-${m}`, label: m });
+  if (chips.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+      {chips.map((c) => (
+        <span key={c.id} className="chip" data-tone="beacon">
+          <Check size={10} aria-hidden="true" />
+          {c.label}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function TypingIndicator() {
   return (
-    <div style={{ display: 'flex', gap: 4, padding: '10px 14px' }}>
+    <div
+      style={{ display: 'flex', gap: 4, padding: '10px 14px' }}
+      aria-label="AI is thinking"
+      role="status"
+    >
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
           animate={{ y: [0, -6, 0] }}
           transition={{ delay: i * 0.15, duration: 0.6, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent)' }}
+          style={{
+            width: 6, height: 6, borderRadius: '50%',
+            background: 'var(--beacon)',
+          }}
         />
       ))}
     </div>
@@ -38,95 +92,108 @@ function TypingIndicator() {
 }
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      text: '👋 Tell me your plans — budget, mood, time available — and I\'ll craft a smart itinerary for you.',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputId = 'chat-input';
+  const locale = useAppStore((s) => s.locale);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking]);
 
-  async function handleSend(text: string) {
-    if (!text.trim() || isThinking) return;
+  const showColdStart = messages.length === 0;
 
-    const userMsg: Message = { id: `msg-${messageCounter++}`, role: 'user', text };
+  async function handleSend(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isThinking) return;
+
+    const parsed = parsePrompt(trimmed);
+    const userMsg: Message = { id: `msg-${messageCounter++}`, role: 'user', text: trimmed };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsThinking(true);
 
     try {
-      const itinerary = await generateItineraryWithGemini(text);
+      let itinerary: ItineraryResponse;
+      try {
+        itinerary = await generateItineraryWithGemini(trimmed);
+      } catch {
+        // Fall back to deterministic mock so the demo never hits a dead end.
+        itinerary = generateMockItinerary(parsed);
+      }
       const aiMsg: Message = {
         id: `msg-${messageCounter++}`,
         role: 'assistant',
-        text: itinerary.summary,
+        parsed,
         itinerary,
+        ok: true,
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
-      // Fallback: show a friendly error
-      const aiMsg: Message = {
+      setMessages((prev) => [...prev, {
         id: `msg-${messageCounter++}`,
         role: 'assistant',
-        text: "I couldn't generate a plan right now. Make sure you've set your Gemini API key in `.env.local` as `NEXT_PUBLIC_GEMINI_API_KEY`.",
-      };
-      setMessages((prev) => [...prev, aiMsg]);
+        parsed,
+        text: "I couldn't generate a plan right now. Try a shorter request, or check that NEXT_PUBLIC_GEMINI_API_KEY is set in .env.local.",
+        ok: false,
+      }]);
     }
     setIsThinking(false);
   }
 
   function handleReset() {
-    setMessages([{
-      id: 'welcome',
-      role: 'assistant',
-      text: '👋 Tell me your plans — budget, mood, time available — and I\'ll craft a smart itinerary for you.',
-    }]);
+    setMessages([]);
     setInput('');
     setIsThinking(false);
   }
+
+  const localeSettings = locale;
+  const hasUserText = input.trim().length > 0;
+  const inputTokens = useMemo(() => parsePrompt(input), [input]);
 
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100dvh',
-      maxWidth: 480,
+      maxWidth: 720,
       margin: '0 auto',
     }}>
       {/* Header */}
-      <div style={{
-        padding: '52px 16px 12px',
-        background: 'var(--color-bg)',
-        borderBottom: '1px solid var(--color-surface-border)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          padding: '52px 16px 12px',
+          background: 'var(--ink)',
+          backgroundImage: 'linear-gradient(to bottom, var(--ink) 80%, transparent)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0,
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 12,
-            background: 'linear-gradient(135deg, var(--color-accent), #6A4CE8)',
+            background: 'var(--beacon)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 16px rgba(242, 184, 75, 0.35)',
           }}>
-            <Sparkles size={16} color="white" aria-hidden="true" />
+            <Sparkles size={16} color="#1A1300" aria-hidden="true" />
           </div>
           <div>
             <h1 style={{ fontSize: '1rem', fontWeight: 700 }}>AI Command Center</h1>
-            <p style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)' }}>Powered by NEXUS AI</p>
+            <p style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Powered by NEXUS AI</p>
           </div>
         </div>
         <button
           onClick={handleReset}
           className="btn-secondary"
-          style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+          style={{ padding: '6px 12px', fontSize: '0.75rem', minHeight: 44 }}
           aria-label="Reset conversation"
           id="chat-reset-btn"
         >
@@ -135,16 +202,84 @@ export default function ChatPage() {
         </button>
       </div>
 
-      {/* Messages */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-      }}>
+      {/* Messages / empty state */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+        }}
+      >
         <AnimatePresence initial={false}>
+          {showColdStart && (
+            <motion.div
+              key="cold-start"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 14,
+                padding: '1rem 0',
+              }}
+              aria-label="AI Command Center — cold start"
+            >
+              <span className="badge badge-accent" style={{ alignSelf: 'flex-start' }}>
+                <Wand2 size={10} aria-hidden="true" />
+                Try one
+              </span>
+              <h2 style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.15,
+              }}>
+                Tell me your plans.<br />
+                <span style={{ color: 'var(--beacon)' }}>I&apos;ll plan the rest.</span>
+              </h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Mention budget, mood, time available, or the vibe — I&apos;ll parse it, confirm it back as chips,
+                then build a live itinerary using the city&apos;s real crowd, weather, and traffic data.
+              </p>
+              <div role="list" aria-label="Example prompts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {QUICK_PROMPTS.map((p, i) => (
+                  <motion.button
+                    key={p.text}
+                    role="listitem"
+                    onClick={() => handleSend(p.text)}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + i * 0.05, duration: 0.35 }}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="card"
+                    style={{
+                      padding: '12px 14px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      minHeight: 64,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                    aria-label={`Use example prompt: ${p.text}`}
+                  >
+                    <span style={{ fontSize: '1.5rem' }} aria-hidden="true">{p.icon}</span>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--text-primary)', lineHeight: 1.3, fontWeight: 500 }}>
+                      {p.text}
+                    </span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
           {messages.map((msg) => (
             <motion.div
               key={msg.id}
@@ -158,43 +293,89 @@ export default function ChatPage() {
             >
               {msg.role === 'user' ? (
                 <div style={{
-                  background: 'linear-gradient(135deg, var(--color-accent), #6A4CE8)',
-                  color: 'white',
+                  background: 'var(--beacon)',
+                  color: '#1A1300',
                   padding: '10px 14px',
                   borderRadius: '18px 18px 4px 18px',
                   fontSize: '0.85rem',
-                  maxWidth: '80%',
+                  maxWidth: '85%',
                   lineHeight: 1.5,
-                  boxShadow: '0 4px 16px rgba(123,92,250,0.3)',
+                  fontWeight: 600,
                 }}>
                   {msg.text}
                 </div>
               ) : (
-                <div style={{ maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {/* AI text bubble */}
-                  {msg.text && (
-                    <div className="glass-card" style={{
-                      padding: '10px 14px',
-                      borderRadius: '4px 18px 18px 18px',
-                      fontSize: '0.85rem',
-                      color: 'var(--color-text-primary)',
-                      lineHeight: 1.5,
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 8,
+                <div style={{ maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                  {/* AI parses the request — chips confirm what we understood */}
+                  {msg.parsed && (
+                    <div style={{
+                      padding: '12px 14px',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--beacon-border)',
+                      borderRadius: 14,
                     }}>
-                      <Sparkles size={13} color="var(--color-accent-glow)" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <Check size={12} color="var(--beacon)" aria-hidden="true" />
+                        <span className="text-label" style={{ color: 'var(--beacon)' }}>
+                          Got it — building your plan around
+                        </span>
+                      </div>
+                      <ChipList
+                        parsed={msg.parsed}
+                        locale={localeSettings.locale}
+                        currency={localeSettings.currency}
+                        hour12={localeSettings.hour12}
+                      />
+                    </div>
+                  )}
+                  {/* AI text bubble (only when there's a message AND no itinerary) */}
+                  {msg.text && !msg.itinerary && (
+                    <div className="card" style={{
+                      padding: '10px 14px',
+                      fontSize: '0.85rem',
+                      color: 'var(--text-primary)',
+                      lineHeight: 1.5,
+                    }}>
                       {msg.text}
                     </div>
                   )}
-                  {/* Itinerary */}
                   {msg.itinerary && (
-                    <div className="glass-card" style={{ padding: 14 }}>
+                    <div className="card" style={{ padding: 14 }}>
                       <TimelinePlanner
                         steps={msg.itinerary.steps}
                         totalCostInr={msg.itinerary.totalCostInr}
                         matchedPreferences={msg.itinerary.matchedPreferences}
+                        summary={msg.itinerary.summary}
                       />
+                      {/* Per-step rings — one of the brief's signature asks */}
+                      {msg.itinerary.steps.length > 0 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: 10,
+                            marginTop: 12,
+                            padding: '12px 14px',
+                            background: 'var(--surface-2)',
+                            borderRadius: 12,
+                            flexWrap: 'wrap',
+                          }}
+                          aria-label="Step scores"
+                        >
+                          {msg.itinerary.steps.slice(0, 4).map((s, i) => (
+                            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <NexusRing
+                                value={Math.min(100, Math.max(0, 100 - (s.costInr ?? 0) / 20))}
+                                tone="beacon"
+                                size="sm"
+                                ariaLabel={`Step ${i + 1} score`}
+                              />
+                              <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>
+                                Stop {i + 1}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -203,15 +384,12 @@ export default function ChatPage() {
           ))}
         </AnimatePresence>
 
-        {/* Typing indicator */}
         {isThinking && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="glass-card"
-            style={{ padding: '4px 8px', borderRadius: '4px 18px 18px 18px', alignSelf: 'flex-start' }}
-            aria-label="AI is thinking"
-            role="status"
+            className="card"
+            style={{ padding: '4px 8px', alignSelf: 'flex-start' }}
           >
             <TypingIndicator />
           </motion.div>
@@ -220,57 +398,37 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Quick prompts */}
-      {messages.length <= 1 && (
-        <div style={{
-          padding: '0 16px 12px',
-          display: 'flex',
-          gap: 6,
-          overflowX: 'auto',
-          flexShrink: 0,
-        }}>
-          {QUICK_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => handleSend(prompt)}
-              style={{
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-surface-border)',
-                borderRadius: 100,
-                padding: '6px 12px',
-                fontSize: '0.72rem',
-                color: 'var(--color-text-secondary)',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Input bar */}
+      {/* Input bar — always visible so users know they can type */}
       <div style={{
         padding: '12px 16px',
-        paddingBottom: 'calc(var(--nav-height) + 12px)',
-        background: 'var(--color-bg)',
-        borderTop: '1px solid var(--color-surface-border)',
+        paddingBottom: 'calc(var(--nav-height) + 12px + env(safe-area-inset-bottom, 0px))',
+        background: 'var(--ink)',
+        backgroundImage: 'linear-gradient(to top, var(--ink) 80%, transparent)',
+        borderTop: '1px solid var(--hairline)',
         flexShrink: 0,
       }}>
-        <div style={{
+        {/* Live parsed chips while the user types */}
+        {hasUserText && (inputTokens.budgetInr != null || inputTokens.durationHours != null || inputTokens.mood.length > 0) && (
+          <div style={{ marginBottom: 8 }}>
+            <ChipList
+              parsed={inputTokens}
+              locale={localeSettings.locale}
+              currency={localeSettings.currency}
+              hour12={localeSettings.hour12}
+            />
+          </div>
+        )}
+        <div className="card" style={{
           display: 'flex',
           gap: 10,
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-surface-border)',
-          borderRadius: 18,
           padding: '8px 8px 8px 14px',
           alignItems: 'flex-end',
         }}>
-          <MessageSquare size={16} color="var(--color-text-muted)" style={{ marginBottom: 6, flexShrink: 0 }} aria-hidden="true" />
+          <label htmlFor={inputId} className="sr-only">
+            Message NEXUS AI
+          </label>
           <textarea
+            id={inputId}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -281,43 +439,30 @@ export default function ChatPage() {
             }}
             placeholder="I have 2 hours and ₹800, want something peaceful…"
             rows={1}
-            id="chat-input"
-            aria-label="Message NEXUS AI"
+            aria-label="Describe your plans — budget, mood, time"
             style={{
               flex: 1,
               background: 'none',
               border: 'none',
               outline: 'none',
-              color: 'var(--color-text-primary)',
+              color: 'var(--text-primary)',
               fontSize: '0.875rem',
               resize: 'none',
               lineHeight: 1.5,
               maxHeight: 100,
               overflowY: 'auto',
+              fontFamily: 'inherit',
             }}
           />
           <button
             onClick={() => handleSend(input)}
-            disabled={!input.trim() || isThinking}
+            disabled={!hasUserText || isThinking}
             id="chat-send-btn"
             aria-label="Send message"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
-              background: input.trim() && !isThinking
-                ? 'linear-gradient(135deg, var(--color-accent), #6A4CE8)'
-                : 'var(--color-surface-border)',
-              border: 'none',
-              cursor: input.trim() && !isThinking ? 'pointer' : 'not-allowed',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              transition: 'background 0.2s ease',
-            }}
+            className="btn-primary"
+            style={{ padding: '0.5rem 0.75rem', minHeight: 44 }}
           >
-            <Send size={14} color="white" aria-hidden="true" />
+            <Send size={14} aria-hidden="true" />
           </button>
         </div>
       </div>

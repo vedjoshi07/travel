@@ -1,4 +1,9 @@
 'use client';
+/**
+ * AlertBanner — shown when the current location is over-crowded and there's
+ * a calmer alternative. The banner is reserved exclusively for this meaning,
+ * per the new design system (the alert color is *only* ever used here).
+ */
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, ChevronRight } from 'lucide-react';
 
@@ -29,14 +34,14 @@ export function AlertBanner({
       {visible && (
         <motion.div
           role="alert"
-          aria-live="assertive"
+          aria-live="polite"
           initial={{ opacity: 0, y: -20, scaleY: 0.8 }}
           animate={{ opacity: 1, y: 0, scaleY: 1 }}
           exit={{ opacity: 0, y: -20, scaleY: 0.8 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            background: 'linear-gradient(135deg, rgba(244, 196, 48, 0.12), rgba(231, 76, 60, 0.08))',
-            border: '1px solid rgba(244, 196, 48, 0.25)',
+            background: 'var(--alert-dim)',
+            border: '1px solid var(--alert-border)',
             borderRadius: 16,
             padding: '12px 14px',
             display: 'flex',
@@ -45,17 +50,15 @@ export function AlertBanner({
             marginBottom: 12,
           }}
         >
-          {/* Icon */}
           <AlertTriangle
             size={16}
-            color="var(--color-status-mid)"
+            color="var(--alert)"
             style={{ flexShrink: 0, marginTop: 1 }}
             aria-hidden="true"
           />
 
-          {/* Content */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-primary)', fontWeight: 500, marginBottom: 4 }}>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-primary)', fontWeight: 500, marginBottom: 4, lineHeight: 1.4 }}>
               {message}
             </p>
             {comparison && (
@@ -63,35 +66,34 @@ export function AlertBanner({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
-                fontSize: '0.72rem',
-                color: 'var(--color-text-secondary)',
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
               }}>
-                <span style={{ textDecoration: 'line-through', color: 'var(--color-status-bad)' }}>
+                <span style={{ textDecoration: 'line-through', color: 'var(--alert)' }}>
                   {comparison.oldOption} ({comparison.oldStat})
                 </span>
-                <ChevronRight size={10} aria-hidden="true" />
-                <span style={{ color: 'var(--color-status-good)', fontWeight: 600 }}>
+                <ChevronRight size={11} aria-hidden="true" />
+                <span style={{ color: 'var(--signal)', fontWeight: 600 }}>
                   {comparison.newOption} ({comparison.newStat})
                 </span>
               </div>
             )}
           </div>
 
-          {/* Actions */}
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
             {onAction && (
               <button
                 onClick={onAction}
                 id="alert-action-btn"
+                className="btn-secondary"
                 style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.75rem',
                   fontWeight: 700,
-                  color: 'var(--color-accent-glow)',
-                  background: 'none',
-                  border: '1px solid rgba(123,92,250,0.3)',
-                  borderRadius: 8,
-                  padding: '4px 10px',
-                  cursor: 'pointer',
+                  padding: '6px 12px',
+                  borderColor: 'var(--alert-border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text-primary)',
+                  minHeight: 36,
                 }}
                 aria-label={actionLabel}
               >
@@ -101,15 +103,13 @@ export function AlertBanner({
             <button
               onClick={onDismiss}
               id="alert-dismiss-btn"
+              className="btn-secondary"
               style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 4,
-                display: 'flex',
-                alignItems: 'center',
-                color: 'var(--color-text-muted)',
-                borderRadius: 6,
+                padding: 6,
+                minHeight: 36,
+                minWidth: 36,
+                borderColor: 'var(--hairline)',
+                background: 'transparent',
               }}
               aria-label="Dismiss alert"
             >

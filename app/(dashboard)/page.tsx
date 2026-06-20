@@ -1,218 +1,204 @@
 'use client';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Wind, Shield, Calendar, Zap } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
+import { Sparkles, Compass } from 'lucide-react';
 import { useCityState } from '@/lib/hooks/use-city-state';
 import { usePlaceState } from '@/lib/hooks/use-place-state';
-import { useAppStore } from '@/lib/store/app-store';
 import { useSimClock } from '@/lib/simulation/sim-clock-context';
 import { MOCK_PLACES } from '@/lib/simulation/engine';
+import type { PlaceSimState } from '@/lib/simulation/engine';
 import { AIHeroCard } from '@/components/ai-hero-card/AIHeroCard';
 import { AlertBanner } from '@/components/alert-banner/AlertBanner';
 import { PlaceLiveCard } from '@/components/place-live-card/PlaceLiveCard';
-import { useState, useEffect } from 'react';
+import { MiniMapHero } from '@/components/mini-map-hero/MiniMapHero';
+import { buildInsights } from '@/lib/insights';
+import { decideAlert } from '@/lib/alerts';
+import { formatTime } from '@/lib/locale';
+import { useAppStore } from '@/lib/store/app-store';
 
-// ─── Live clock ticker ────────────────────────────────────────────────────────
+// ─── Live header clock ──────────────────────────────────────────────────────
 
-function LiveTicker() {
+function LiveClock() {
   const { simOffsetMinutes } = useSimClock();
-  const [tick, setTick] = useState(new Date());
+  const locale = useAppStore((s) => s.locale);
+  // useSyncExternalStore keeps the SSR-safe "now" snapshot outside the
+  // effect lifecycle and avoids the React 19 setState-in-effect warning.
+  const tick = useSyncExternalStore(
+    (notify) => {
+      const id = setInterval(notify, 1000);
+      return () => clearInterval(id);
+    },
+    () => new Date(),
+    () => null,
+  );
 
-  useEffect(() => {
-    const id = setInterval(() => setTick(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  if (!tick) return <span className="text-mono" aria-hidden="true">--:--</span>;
 
-  const displayTime = new Date(tick.getTime() + simOffsetMinutes * 60_000);
-  const timeStr = displayTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const display = new Date(tick.getTime() + simOffsetMinutes * 60_000);
   const isSimulated = simOffsetMinutes !== 0;
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} aria-live="polite" aria-atomic="true">
       {isSimulated && (
-        <span style={{
-          fontSize: '0.6rem',
-          fontWeight: 700,
-          color: 'var(--color-accent-glow)',
-          background: 'rgba(123,92,250,0.15)',
-          border: '1px solid rgba(123,92,250,0.3)',
-          borderRadius: 100,
-          padding: '2px 7px',
-        }}>
-          SIM
-        </span>
+        <span className="badge badge-accent" style={{ fontSize: '0.625rem' }}>SIM</span>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span style={{
-          width: 6, height: 6, borderRadius: '50%',
-          background: 'var(--color-status-good)',
-          boxShadow: '0 0 6px var(--color-status-good)',
-          display: 'inline-block',
-          animation: 'pulse-glow 3s ease-in-out infinite',
-          flexShrink: 0,
-        }} aria-hidden="true" />
-        <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-          {timeStr}
-        </span>
-      </div>
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: '0.75rem',
+        color: 'var(--text-secondary)',
+      }}>
+        <span className="nexus-ring__live" aria-hidden="true" style={{ position: 'static' }} />
+        <span className="text-mono">{formatTime(display, locale, { seconds: true })}</span>
+      </span>
     </div>
   );
 }
 
-// ─── City Status Bar ─────────────────────────────────────────────────────────
+// ─── City status — collapsed into a single quiet line under the hero ───────
 
-function CityStatusBar() {
-  const { data: city, isLoading } = useCityState();
+function CityStatusLine() {
+  const { data: city } = useCityState();
+
+  if (!city) {
+    return <div style={{ height: 28, borderRadius: 8, background: 'var(--surface)' }} aria-hidden="true" />;
+  }
 
   const trafficColor =
-    city?.trafficLevel === 'low' ? 'var(--color-status-good)' :
-    city?.trafficLevel === 'medium' ? 'var(--color-status-mid)' :
-    'var(--color-status-bad)';
-
-  const statusItems = [
-    {
-      icon: <span style={{ fontSize: '1.1rem' }} aria-hidden="true">{city?.weatherIcon ?? '🌤️'}</span>,
-      label: 'Weather',
-      value: city ? `${city.weatherC}°C` : '--',
-      sub: city?.weatherLabel ?? '…',
-      id: 'city-weather',
-    },
-    {
-      icon: <Wind size={14} color={trafficColor} aria-hidden="true" />,
-      label: 'Traffic',
-      value: city?.trafficLevel ?? '--',
-      sub: 'City-wide',
-      valueColor: trafficColor,
-      id: 'city-traffic',
-    },
-    {
-      icon: <Shield size={14} color="var(--color-status-good)" aria-hidden="true" />,
-      label: 'Safety',
-      value: city ? `${city.safetyScore}` : '--',
-      sub: '/ 100',
-      valueColor: 'var(--color-status-good)',
-      id: 'city-safety',
-    },
-    {
-      icon: <Calendar size={14} color="var(--color-accent-glow)" aria-hidden="true" />,
-      label: 'Events',
-      value: city ? `${city.activeEvents}` : '--',
-      sub: 'Active',
-      valueColor: 'var(--color-accent-glow)',
-      id: 'city-events',
-    },
-  ];
+    city.trafficLevel === 'low' ? 'var(--status-good)' :
+    city.trafficLevel === 'medium' ? 'var(--status-mid)' :
+    'var(--status-bad)';
 
   return (
-    <div
-      role="region"
-      aria-label="City status overview"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 8,
-        marginBottom: 16,
-      }}
-    >
-      {statusItems.map((item, i) => (
-        <motion.div
-          key={item.id}
-          id={item.id}
-          className="glass-card"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          style={{ padding: '10px 8px', textAlign: 'center' }}
-        >
-          <div style={{ marginBottom: 4 }}>{item.icon}</div>
-          <div style={{
-            fontSize: '0.85rem',
-            fontWeight: 700,
-            fontVariantNumeric: 'tabular-nums',
-            color: item.valueColor ?? 'var(--color-text-primary)',
-            lineHeight: 1.2,
-            textTransform: 'capitalize',
-          }}>
-            {isLoading ? '…' : item.value}
-          </div>
-          <div style={{ fontSize: '0.58rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-            {item.sub}
-          </div>
-        </motion.div>
-      ))}
+    <div style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '0.75rem 1.25rem',
+      alignItems: 'center',
+      padding: '0.75rem 1rem',
+      background: 'var(--surface)',
+      border: '1px solid var(--hairline)',
+      borderRadius: 14,
+    }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span aria-hidden="true">{city.weatherIcon}</span>
+        <span className="text-mono" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{city.weatherC}°C</span>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{city.weatherLabel}</span>
+      </span>
+      <span style={{ width: 1, height: 16, background: 'var(--hairline)' }} />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: trafficColor }} />
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'capitalize' }}>{city.trafficLevel} traffic</span>
+      </span>
+      <span style={{ width: 1, height: 16, background: 'var(--hairline)' }} />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <Compass size={11} color="var(--signal)" aria-hidden="true" />
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{city.activeEvents} live events</span>
+      </span>
+      <span style={{ marginInlineStart: 'auto', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+        AQI: <span className="text-mono" style={{ color: 'var(--text-primary)' }}>{city.airQuality}</span>
+      </span>
     </div>
   );
 }
 
-// ─── Smart AI Hero ────────────────────────────────────────────────────────────
+// ─── Smart Alert — uses the alerts invariant module ─────────────────────────
+
+function SmartAlert() {
+  const { alertDismissed, dismissAlert } = useAppStore();
+  const router = useRouter();
+
+  // The home-page hero is "Spice Market" today. Look up its state and the
+  // state of every other place, then let the alerts module decide.
+  const states = useAllPlaceStates();
+
+  const decision = decideAlert({
+    states,
+    currentPlaceId: 'spice-market',
+  });
+
+  if (alertDismissed || !decision.visible) return null;
+
+  const current = states['spice-market'];
+  const alt = decision.alternativePlaceId ? MOCK_PLACES.find((p) => p.id === decision.alternativePlaceId) : undefined;
+  const altState = decision.alternativePlaceId ? states[decision.alternativePlaceId] : undefined;
+
+  if (!current || !alt || !altState) return null;
+
+  return (
+    <AlertBanner
+      visible={true}
+      message={`Spice Market is getting crowded — ${alt.name} is calmer right now.`}
+      comparison={{
+        oldOption: 'Spice Market',
+        oldStat: `${current.crowdPercent}% full`,
+        newOption: alt.name,
+        newStat: `${altState.crowdPercent}% full`,
+      }}
+      onDismiss={dismissAlert}
+      onAction={() => router.push(`/place/${alt.id}`)}
+      actionLabel="Switch"
+    />
+  );
+}
+
+// ─── Hook to read all place states once (used by insights + alert) ─────────
+
+function useAllPlaceStates(): Partial<Record<string, PlaceSimState>> {
+  const s0 = usePlaceState(MOCK_PLACES[0].id).data;
+  const s1 = usePlaceState(MOCK_PLACES[1].id).data;
+  const s2 = usePlaceState(MOCK_PLACES[2].id).data;
+  const s3 = usePlaceState(MOCK_PLACES[3].id).data;
+  const s4 = usePlaceState(MOCK_PLACES[4].id).data;
+  const s5 = usePlaceState(MOCK_PLACES[5].id).data;
+  const s6 = usePlaceState(MOCK_PLACES[6].id).data;
+  const s7 = usePlaceState(MOCK_PLACES[7].id).data;
+  const s8 = usePlaceState(MOCK_PLACES[8].id).data;
+  const s9 = usePlaceState(MOCK_PLACES[9].id).data;
+  const s10 = usePlaceState(MOCK_PLACES[10].id).data;
+  const s11 = usePlaceState(MOCK_PLACES[11].id).data;
+
+  return {
+    'central-park': s0,
+    'lotus-cafe': s1,
+    'riverside-walk': s2,
+    'art-district': s3,
+    'spice-market': s4,
+    'rooftop-lounge': s5,
+    'heritage-quarter': s6,
+    'night-bazaar': s7,
+    'baga-beach': s8,
+    'calangute-beach': s9,
+    'fort-aguada': s10,
+    'anjuna-market': s11,
+  };
+}
+
+// ─── AI Hero ───────────────────────────────────────────────────────────────
 
 function SmartHero() {
   const router = useRouter();
-  const candidates = [
-    { place: MOCK_PLACES[0], hook: usePlaceState('central-park') },
-    { place: MOCK_PLACES[1], hook: usePlaceState('lotus-cafe') },
-    { place: MOCK_PLACES[2], hook: usePlaceState('riverside-walk') },
-    { place: MOCK_PLACES[5], hook: usePlaceState('rooftop-lounge') },
+
+  // Hooks at the top level — never call a hook inside a callback.
+  const sCentral = usePlaceState('central-park');
+  const sLotus   = usePlaceState('lotus-cafe');
+  const sRiver   = usePlaceState('riverside-walk');
+  const sRoof    = usePlaceState('rooftop-lounge');
+
+  const states = [sCentral, sLotus, sRiver, sRoof];
+  const ids: Array<'central-park' | 'lotus-cafe' | 'riverside-walk' | 'rooftop-lounge'> = [
+    'central-park', 'lotus-cafe', 'riverside-walk', 'rooftop-lounge',
   ];
 
-  // While any of the 4 candidate queries is still loading, none of them
-  // has a real experienceScore — comparing undefined-with-default-0 picks an
-  // arbitrary winner. Render a skeleton variant of the hero card instead.
-  const anyLoading = candidates.some((c) => c.hook.isLoading);
-  const allLoaded = candidates.every((c) => !c.hook.isLoading && c.hook.data);
-  const best = candidates.reduce((prev, cur) =>
-    (cur.hook.data?.experienceScore ?? 0) > (prev.hook.data?.experienceScore ?? 0) ? cur : prev
-  );
+  const anyLoading = states.some((s) => s.isLoading);
+  const allLoaded = states.every((s) => !s.isLoading && s.data);
 
-  const state = best.hook.data;
-  const { simOffsetMinutes } = useSimClock();
-  const simHour = ((new Date().getHours() * 60 + new Date().getMinutes() + simOffsetMinutes) % (24 * 60)) / 60;
-  const timeCtx = simHour < 12 ? 'morning' : simHour < 17 ? 'afternoon' : 'evening';
-
-  const reasonsMap: Record<string, string[]> = {
-    'central-park': [
-      `Only ${state?.crowdPercent ?? '?'}% crowd — open & breezy right now`,
-      `Perfect for a ${timeCtx} jog or picnic`,
-      `Score: ${state?.experienceScore ?? '?'}/100 — top pick this hour`,
-      `${state?.queueMinutes === 0 ? 'Walk right in, no queue' : `~${state?.queueMinutes} min queue`}`,
-    ],
-    'lotus-cafe': [
-      `Just ${state?.crowdPercent ?? '?'}% full — grab your spot now`,
-      `${timeCtx === 'morning' ? 'Ideal for a slow morning coffee' : 'Cozy & calm for the ' + timeCtx}`,
-      `Score: ${state?.experienceScore ?? '?'}/100 — highest nearby`,
-      `~${state?.queueMinutes ?? 0} min wait — get in before it fills up`,
-    ],
-    'riverside-walk': [
-      `Peaceful at ${state?.crowdPercent ?? '?'}% — nearly empty`,
-      `${timeCtx === 'evening' ? 'Golden hour river views right now' : 'Fresh breeze, great for a walk'}`,
-      'Completely free — no entry fees',
-      `Noise level: ${state?.noiseLevel ?? 'quiet'} — perfect for unwinding`,
-    ],
-    'rooftop-lounge': [
-      `${state?.crowdPercent ?? '?'}% crowd — great vibe right now`,
-      `${timeCtx === 'evening' ? '🌅 Sunset views from the rooftop' : 'Stylish space with city views'}`,
-      `Score: ${state?.experienceScore ?? '?'}/100`,
-      `~${state?.queueMinutes ?? 0} min wait — book your spot`,
-    ],
-  };
-
-  const reasons = reasonsMap[best.place.id] ?? reasonsMap['central-park'];
-
-  // Skeleton fallback: render the same glass-card-accent shell with
-  // shimmering placeholder content so the layout doesn't jump on first paint.
   if (anyLoading || !allLoaded) {
     return (
-      <div
-        className="glass-card-accent"
-        style={{ padding: 20, position: 'relative', overflow: 'hidden' }}
-        role="region"
-        aria-label="AI recommendation — loading"
-        aria-busy="true"
-      >
-        <div style={{
-          fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em',
-          textTransform: 'uppercase', color: 'var(--color-accent-glow)', marginBottom: 12,
-        }}>
+      <div className="card-accent" style={{ padding: 20 }} role="region" aria-label="AI recommendation — loading" aria-busy="true">
+        <div className="badge badge-accent" style={{ marginBottom: 12 }}>
+          <Sparkles size={10} aria-hidden="true" />
           AI Recommendation
         </div>
         <div style={{
@@ -244,189 +230,127 @@ function SmartHero() {
     );
   }
 
+  // Pick the best by experience score, tie-broken by lower crowd.
+  let best = states[0];
+  for (const s of states) {
+    const a = s.data!;
+    const b = best.data!;
+    if (a.experienceScore > b.experienceScore ||
+        (a.experienceScore === b.experienceScore && a.crowdPercent < b.crowdPercent)) {
+      best = s;
+    }
+  }
+  const id = ids[states.indexOf(best)];
+  const place = MOCK_PLACES.find((p) => p.id === id)!;
+  const data = best.data!;
+
+  const reasonsMap: Record<string, string[]> = {
+    'central-park': [
+      `Only ${data.crowdPercent}% crowd — open and breezy right now`,
+      'Perfect for a midday walk or a quiet reset',
+      `Score: ${data.experienceScore}/100 — top pick this hour`,
+      data.queueMinutes === 0 ? 'Walk right in, no queue' : `~${data.queueMinutes} min queue`,
+    ],
+    'lotus-cafe': [
+      `Just ${data.crowdPercent}% full — grab your spot now`,
+      'Cozy and calm for a working break or slow coffee',
+      `Score: ${data.experienceScore}/100 — highest nearby`,
+      `~${data.queueMinutes ?? 0} min wait — get in before it fills up`,
+    ],
+    'riverside-walk': [
+      `Peaceful at ${data.crowdPercent}% — nearly empty`,
+      'Fresh breeze, great for a walk',
+      'Completely free — no entry fees',
+      `Noise level: ${data.noiseLevel} — perfect for unwinding`,
+    ],
+    'rooftop-lounge': [
+      `${data.crowdPercent}% crowd — great vibe right now`,
+      'Stylish space with sunset views',
+      `Score: ${data.experienceScore}/100`,
+      `~${data.queueMinutes ?? 0} min wait — book your spot`,
+    ],
+  };
+
   return (
     <AIHeroCard
-      placeName={best.place.name}
-      reasonBullets={reasons}
-      etaMinutes={Math.ceil(best.place.distanceM / 80)}
-      crowdPercent={state?.crowdPercent}
-      experienceScore={state?.experienceScore}
-      imageUrl={best.place.imageUrl}
-      category={best.place.category}
+      placeName={place.name}
+      reasonBullets={reasonsMap[id] ?? []}
+      etaMinutes={Math.ceil(place.distanceM / 80)}
+      crowdPercent={data.crowdPercent}
+      experienceScore={data.experienceScore}
+      imageUrl={place.imageUrl}
+      category={place.category}
       actions={{
-        primary: { label: 'View Details', onClick: () => router.push(`/place/${best.place.id}`) },
+        primary: { label: 'View Details', onClick: () => router.push(`/place/${id}`) },
         secondary: { label: 'Plan Trip', onClick: () => router.push('/chat') },
       }}
     />
   );
 }
 
-// ─── Quick Insights row ───────────────────────────────────────────────────────
+// ─── Smart Insights — built by the insights module (3 distinct entities) ───
 
 function QuickInsights() {
   const router = useRouter();
-  const state0 = usePlaceState(MOCK_PLACES[0].id).data;
-  const state1 = usePlaceState(MOCK_PLACES[1].id).data;
-  const state2 = usePlaceState(MOCK_PLACES[2].id).data;
-  const state3 = usePlaceState(MOCK_PLACES[3].id).data;
-  const state4 = usePlaceState(MOCK_PLACES[4].id).data;
+  const { simOffsetMinutes } = useSimClock();
+  const states = useAllPlaceStates();
 
-  const states = [
-    { place: MOCK_PLACES[0], data: state0 },
-    { place: MOCK_PLACES[1], data: state1 },
-    { place: MOCK_PLACES[2], data: state2 },
-    { place: MOCK_PLACES[3], data: state3 },
-    { place: MOCK_PLACES[4], data: state4 },
-  ];
-
-  const quietest = states.reduce((prev, cur) =>
-    (cur.data?.crowdPercent ?? 100) < (prev.data?.crowdPercent ?? 100) ? cur : prev
-  );
-
-  const bestScore = states.reduce((prev, cur) =>
-    (cur.data?.experienceScore ?? 0) > (prev.data?.experienceScore ?? 0) ? cur : prev
-  );
-
-  const insights = [
-    {
-      icon: '🤫',
-      label: 'Quietest now',
-      value: quietest.place.name,
-      sub: `${quietest.data?.crowdPercent ?? '?'}% crowd`,
-      color: 'var(--color-status-good)',
-      href: `/place/${quietest.place.id}`,
-      id: 'insight-quietest',
-    },
-    {
-      icon: '⭐',
-      label: 'Best experience',
-      value: bestScore.place.name,
-      sub: `${bestScore.data?.experienceScore ?? '?'}/100`,
-      color: 'var(--color-status-mid)',
-      href: `/place/${bestScore.place.id}`,
-      id: 'insight-best',
-    },
-    {
-      icon: '📈',
-      label: 'Peak forecast',
-      value: '7 PM spike',
-      sub: 'Avoid evening rush',
-      color: 'var(--color-status-bad)',
-      href: `/forecast/${MOCK_PLACES[0].id}`,
-      id: 'insight-peak',
-    },
-  ];
+  const slots = buildInsights({ states, simOffsetMinutes });
 
   return (
-    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 16 }}>
-      {insights.map((ins, i) => (
+    <div className="grid-3" role="list" aria-label="Smart insights">
+      {slots.map((slot, i) => (
         <motion.button
-          key={ins.id}
-          id={ins.id}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 + i * 0.08, duration: 0.4 }}
-          onClick={() => router.push(ins.href)}
-          className="glass-card"
-          style={{
-            flexShrink: 0,
-            width: 140,
-            padding: '12px',
-            textAlign: 'left',
-            cursor: 'pointer',
-            border: 'none',
-            borderLeft: `3px solid ${ins.color}`,
-          }}
-          whileHover={{ scale: 1.02, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-          aria-label={`${ins.label}: ${ins.value}`}
+          key={slot.kind}
+          role="listitem"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 + i * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          onClick={() => router.push(slot.kind === 'peak' ? `/forecast/${slot.placeId}` : `/place/${slot.placeId}`)}
+          className="insight-slot"
+          data-tone={slot.tone}
+          aria-label={`${slot.kind === 'quietest' ? 'Quietest now' : slot.kind === 'best' ? 'Best experience' : 'Peak forecast'}: ${slot.value}. ${slot.sub}.`}
         >
-          <div style={{ fontSize: '1.2rem', marginBottom: 6 }} aria-hidden="true">{ins.icon}</div>
-          <div style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>
-            {ins.label}
-          </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 2, lineHeight: 1.2 }}>
-            {ins.value}
-          </div>
-          <div style={{ fontSize: '0.65rem', color: ins.color, fontWeight: 600 }}>
-            {ins.sub}
-          </div>
+          <span className="text-label">{labelForKind(slot.kind)}</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+            {slot.value}
+          </span>
+          <span className="text-mono" style={{
+            color: slot.tone === 'signal' ? 'var(--signal)' : slot.tone === 'beacon' ? 'var(--beacon)' : 'var(--alert)',
+            fontWeight: 600,
+            fontSize: '0.75rem',
+          }}>
+            {slot.sub}
+          </span>
         </motion.button>
       ))}
     </div>
   );
 }
 
-// ─── Theme Toggle ─────────────────────────────────────────────────────────────
-
-function ThemeToggle() {
-  const { theme, toggleTheme } = useAppStore();
-  return (
-    <button
-      onClick={toggleTheme}
-      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-      id="theme-toggle"
-      style={{
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-surface-border)',
-        borderRadius: 12,
-        padding: '6px 10px',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 5,
-        fontSize: '0.72rem',
-        color: 'var(--color-text-secondary)',
-        transition: 'all 0.2s ease',
-      }}
-    >
-      {theme === 'dark' ? '☀️' : '🌙'}
-    </button>
-  );
+function labelForKind(k: 'quietest' | 'best' | 'peak'): string {
+  return k === 'quietest' ? 'Quietest now' : k === 'best' ? 'Best experience' : 'Peak forecast';
 }
 
-// ─── Smart Alert ─────────────────────────────────────────────────────────────
-
-function SmartAlert() {
-  const { alertDismissed, dismissAlert } = useAppStore();
-  const { data: spiceState } = usePlaceState('spice-market');
-  const { data: artState } = usePlaceState('art-district');
-  const router = useRouter();
-
-  const showAlert = !alertDismissed && (spiceState?.crowdPercent ?? 0) > 65;
-
-  return (
-    <AlertBanner
-      visible={showAlert}
-      message="Spice Market is getting crowded — Art District is much quieter"
-      comparison={{
-        oldOption: 'Spice Market',
-        oldStat: `${spiceState?.crowdPercent ?? 0}% full`,
-        newOption: 'Art District',
-        newStat: `${artState?.crowdPercent ?? 0}% full`,
-      }}
-      onDismiss={dismissAlert}
-      onAction={() => router.push('/place/art-district')}
-      actionLabel="Switch"
-    />
-  );
-}
-
-// ─── Main Home Page ───────────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { simOffsetMinutes } = useSimClock();
-  const simHour = ((new Date().getHours() * 60 + new Date().getMinutes() + simOffsetMinutes) % (24 * 60)) / 60;
+  const userPreferences = useAppStore((s) => s.userPreferences);
+
+  const simMinutes =
+    new Date().getHours() * 60 + new Date().getMinutes() + simOffsetMinutes;
+  const simHour = ((simMinutes % (24 * 60)) + 24 * 60) / 60;
   const greeting =
     simHour < 5 ? 'Good night' :
     simHour < 12 ? 'Good morning' :
     simHour < 17 ? 'Good afternoon' : 'Good evening';
 
+  const states = useAllPlaceStates();
   const nearbyPlaces = MOCK_PLACES.slice(0, 6);
 
   return (
     <div className="page-container">
-      {/* ── Sticky header ── */}
       <div className="page-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 52 }}>
           <div>
@@ -434,61 +358,55 @@ export default function HomePage() {
               key={greeting}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: 2 }}
+              style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 2 }}
             >
-              {greeting} 👋
+              {greeting}{userPreferences.mood.length > 0 ? ' — ' + userPreferences.mood[0] : ''}
             </motion.p>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              <span className="gradient-text">NEXUS</span>{' '}
-              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400, fontSize: '0.9rem' }}>
-                City Intel
-              </span>
+            <h1 style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.625rem',
+              fontWeight: 800,
+              letterSpacing: '-0.03em',
+              lineHeight: 1.1,
+            }}>
+              <span className="gradient-text">NEXUS</span>
             </h1>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <ThemeToggle />
-            <LiveTicker />
-          </div>
+          <LiveClock />
         </div>
       </div>
 
-      {/* ── Alert ── */}
       <SmartAlert />
 
-      {/* ── City Status ── */}
-      <section aria-label="City status">
-        <CityStatusBar />
+      <section aria-label="Live map of nearby places" style={{ marginBottom: 20 }}>
+        <MiniMapHero states={states} />
       </section>
 
-      {/* ── AI Hero ── */}
+      <section aria-label="City status" style={{ marginBottom: 20 }}>
+        <CityStatusLine />
+      </section>
+
       <section aria-label="AI recommendation" style={{ marginBottom: 20 }}>
         <SmartHero />
       </section>
 
-      {/* ── Quick Insights ── */}
-      <section aria-label="Smart insights">
+      <section aria-label="Smart insights" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <h2 style={{ fontSize: '0.85rem', fontWeight: 700 }}>Smart Insights</h2>
-          <span className="badge badge-accent" style={{ fontSize: '0.6rem' }}>
-            <Zap size={8} aria-hidden="true" />
-            AI-powered
+          <h2 style={{ fontSize: '0.875rem', fontWeight: 700 }}>Smart Insights</h2>
+          <span className="badge badge-accent" style={{ fontSize: '0.625rem' }}>
+            <Sparkles size={10} aria-hidden="true" />
+            AI
           </span>
         </div>
         <QuickInsights />
       </section>
 
-      {/* ── Nearby places ── */}
-      <section aria-label="Nearby places">
+      <section aria-label="Nearby now">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <h2 style={{ fontSize: '0.85rem', fontWeight: 700 }}>Nearby Now</h2>
+          <h2 style={{ fontSize: '0.875rem', fontWeight: 700 }}>Nearby Now</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: 'var(--color-status-good)',
-              display: 'inline-block',
-              animation: 'pulse-glow 3s ease-in-out infinite',
-            }} aria-hidden="true" />
-            <span style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)' }}>Live · 15s refresh</span>
+            <span className="nexus-ring__live" aria-hidden="true" style={{ position: 'static' }} />
+            <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>Live · 15s refresh</span>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

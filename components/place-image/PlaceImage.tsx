@@ -7,10 +7,15 @@
  *  - a category-tinted gradient + icon fallback if the URL 404s / is slow
  *  - subtle fade-in on success
  *  - a tiny credit line for attribution
+ *
+ * The src is run through `asset()` so the static-export basePath is applied.
+ * Components must NOT pass in a pre-prefixed URL — pass a root-relative
+ * "/places/foo.jpg" and we'll add the basePath here.
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ImageOff } from 'lucide-react';
+import { asset } from '@/lib/base-path';
 
 const CATEGORY_GRADIENT: Record<string, string> = {
   Park:    'linear-gradient(135deg, #2ECC71 0%, #1E3A6E 100%)',
@@ -45,10 +50,11 @@ export function PlaceImage({
 }: PlaceImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
+  const resolvedSrc = src ? asset(src) : undefined;
   const fallbackGradient = CATEGORY_GRADIENT[category] ?? 'linear-gradient(135deg, #7B5CFA, #0B1B3D)';
 
   // No URL at all → render the gradient fallback directly
-  if (!src || errored) {
+  if (!resolvedSrc || errored) {
     return (
       <div
         role="img"
@@ -108,7 +114,7 @@ export function PlaceImage({
         }} aria-hidden="true" />
       )}
       <motion.img
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         loading={priority ? 'eager' : 'lazy'}
         decoding="async"

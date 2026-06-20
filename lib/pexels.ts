@@ -1,5 +1,20 @@
-const PEXELS_API_KEY = 'SK0CN8f7zUUXBKT9C7fcZVrCRSbPKMrOErMpwbSpaS5CqVsTeKMIqF7N';
+/**
+ * Pexels image search — used by the /search page.
+ *
+ * The API key MUST come from env (NEXT_PUBLIC_PEXELS_API_KEY). Falling back to
+ * a public-key-free error is intentional: hardcoding a key in source is a
+ * security and a rate-limit-risk issue for a static-export app.
+ */
+const PEXELS_API_KEY =
+  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_PEXELS_API_KEY) || '';
 const BASE_URL = 'https://api.pexels.com/v1';
+
+function authHeaders(): HeadersInit {
+  if (!PEXELS_API_KEY) {
+    throw new Error('Set NEXT_PUBLIC_PEXELS_API_KEY in .env.local to enable image search.');
+  }
+  return { Authorization: PEXELS_API_KEY };
+}
 
 export interface PexelsPhoto {
   id: number;
@@ -39,7 +54,7 @@ export async function searchPhotos(
   if (orientation) params.set('orientation', orientation);
 
   const res = await fetch(`${BASE_URL}/search?${params}`, {
-    headers: { Authorization: PEXELS_API_KEY },
+    headers: authHeaders(),
   });
 
   if (!res.ok) {
@@ -56,7 +71,7 @@ export async function getCuratedPhotos(
   const params = new URLSearchParams({ per_page: String(perPage), page: String(page) });
 
   const res = await fetch(`${BASE_URL}/curated?${params}`, {
-    headers: { Authorization: PEXELS_API_KEY },
+    headers: authHeaders(),
   });
 
   if (!res.ok) {

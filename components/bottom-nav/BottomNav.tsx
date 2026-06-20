@@ -20,6 +20,8 @@ const TABS: TabDef[] = [
   { href: '/profile',  label: 'Profile',  Icon: User,       id: 'nav-profile' },
 ];
 
+/** Bottom tab bar — mobile only. The desktop rail replaces this at >=960px
+ *  via CSS (.has-rail hides this on desktop). */
 export function BottomNav() {
   const pathname = usePathname();
 
@@ -34,25 +36,25 @@ export function BottomNav() {
         zIndex: 100,
         display: 'flex',
         justifyContent: 'center',
-        padding: '0 8px 8px',
+        padding: '0 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px))',
         pointerEvents: 'none',
       }}
     >
       <div
         style={{
-          background: 'rgba(10, 14, 26, 0.85)',
+          background: 'var(--surface)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1px solid var(--hairline)',
           borderRadius: 28,
-          padding: '8px 16px',
+          padding: '0.5rem 1rem',
           display: 'flex',
           gap: 4,
           alignItems: 'flex-end',
           pointerEvents: 'all',
           boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
           width: '100%',
-          maxWidth: 440,
+          maxWidth: 480,
         }}
       >
         {TABS.map(({ href, label, Icon, id, fab }) => {
@@ -74,6 +76,7 @@ export function BottomNav() {
                   textDecoration: 'none',
                   position: 'relative',
                   paddingBottom: 4,
+                  minHeight: 44,
                 }}
               >
                 <motion.div
@@ -83,22 +86,23 @@ export function BottomNav() {
                     width: 52,
                     height: 52,
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #7B5CFA, #6A4CE8)',
+                    background: 'var(--beacon)',
+                    color: '#1A1300',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxShadow: isActive
-                      ? '0 0 24px rgba(123,92,250,0.7), 0 8px 20px rgba(0,0,0,0.3)'
-                      : '0 0 16px rgba(123,92,250,0.4), 0 4px 12px rgba(0,0,0,0.3)',
+                      ? '0 0 24px rgba(242,184,75,0.7), 0 8px 20px rgba(0,0,0,0.3)'
+                      : '0 0 16px rgba(242,184,75,0.4), 0 4px 12px rgba(0,0,0,0.3)',
                     marginBottom: -8,
                     position: 'relative',
                     bottom: 12,
                     transition: 'box-shadow 0.2s ease',
                   }}
                 >
-                  <Icon size={22} color="white" aria-hidden="true" />
+                  <Icon size={22} aria-hidden="true" />
                 </motion.div>
-                <span style={{ fontSize: '0.6rem', color: 'var(--color-accent-glow)', fontWeight: 600, marginTop: 2 }}>
+                <span style={{ fontSize: '0.625rem', color: 'var(--beacon)', fontWeight: 700, marginTop: 2 }}>
                   {label}
                 </span>
               </Link>
@@ -117,23 +121,24 @@ export function BottomNav() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: 3,
-                padding: '6px 0',
+                gap: 4,
+                padding: '0.5rem 0',
                 textDecoration: 'none',
                 position: 'relative',
+                minHeight: 44,
+                justifyContent: 'center',
               }}
             >
-              {/* Active indicator dot */}
               {isActive && (
-                <motion.div
+                <motion.span
                   layoutId="nav-indicator"
                   style={{
                     position: 'absolute',
-                    top: -1,
-                    width: 20,
-                    height: 2,
-                    borderRadius: 1,
-                    background: 'var(--color-accent)',
+                    top: 0,
+                    width: 24,
+                    height: 3,
+                    borderRadius: 1.5,
+                    background: 'var(--beacon)',
                   }}
                   transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 />
@@ -144,15 +149,15 @@ export function BottomNav() {
               >
                 <Icon
                   size={20}
-                  color={isActive ? 'var(--color-accent-glow)' : 'var(--color-text-muted)'}
+                  color={isActive ? 'var(--beacon)' : 'var(--text-muted)'}
                   aria-hidden="true"
                   strokeWidth={isActive ? 2.5 : 1.8}
                 />
               </motion.div>
               <span style={{
-                fontSize: '0.6rem',
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? 'var(--color-accent-glow)' : 'var(--color-text-muted)',
+                fontSize: '0.625rem',
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? 'var(--beacon)' : 'var(--text-muted)',
                 transition: 'color 0.2s ease',
               }}>
                 {label}

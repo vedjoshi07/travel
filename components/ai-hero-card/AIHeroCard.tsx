@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Navigation, ArrowRight } from 'lucide-react';
+import { asset } from '@/lib/base-path';
 
 interface AIHeroCardProps {
   placeName: string;
@@ -30,6 +31,7 @@ export function AIHeroCard({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgErrored, setImgErrored] = useState(false);
   const showImage = !!imageUrl && !imgErrored;
+  const resolvedImageUrl = imageUrl ? asset(imageUrl) : undefined;
 
   return (
     <motion.div
@@ -71,7 +73,7 @@ export function AIHeroCard({
             }} aria-hidden="true" />
           )}
           <motion.img
-            src={imageUrl}
+            src={resolvedImageUrl}
             alt={placeName}
             loading="eager"
             decoding="async"
@@ -109,22 +111,10 @@ export function AIHeroCard({
         </div>
       )}
 
-      {/* AI label */}
+      {/* AI label — beacon is reserved for AI-generated content */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-          style={{ display: 'flex' }}
-        >
-          <Sparkles size={14} color="var(--color-accent-glow)" aria-hidden="true" />
-        </motion.div>
-        <span style={{
-          fontSize: '0.65rem',
-          fontWeight: 700,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'var(--color-accent-glow)',
-        }}>
+        <span className="badge badge-accent" style={{ fontSize: '0.6875rem' }}>
+          <Sparkles size={10} aria-hidden="true" />
           AI Recommendation
         </span>
       </div>
@@ -135,12 +125,13 @@ export function AIHeroCard({
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         style={{
-          fontSize: '1.6rem',
+          fontFamily: 'var(--font-display)',
+          fontSize: '1.625rem',
           fontWeight: 700,
-          color: 'var(--color-text-primary)',
+          color: 'var(--text-primary)',
           marginBottom: 8,
           letterSpacing: '-0.02em',
-          lineHeight: 1.2,
+          lineHeight: 1.15,
         }}
       >
         {placeName}
@@ -150,13 +141,13 @@ export function AIHeroCard({
       {(crowdPercent !== undefined || experienceScore !== undefined) && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           {crowdPercent !== undefined && (
-            <span className={`badge badge-${crowdPercent < 35 ? 'good' : crowdPercent < 70 ? 'mid' : 'bad'}`}>
-              {crowdPercent < 35 ? '🟢' : crowdPercent < 70 ? '🟡' : '🔴'} {crowdPercent}% crowd
+            <span className={`badge ${crowdPercent < 35 ? 'badge-signal' : crowdPercent < 70 ? 'badge-accent' : 'badge-alert'}`}>
+              {crowdPercent}% crowd
             </span>
           )}
           {experienceScore !== undefined && (
-            <span className={`badge badge-${experienceScore >= 80 ? 'good' : experienceScore >= 50 ? 'mid' : 'bad'}`}>
-              ⭐ {experienceScore}/100
+            <span className={`badge ${experienceScore >= 80 ? 'badge-signal' : experienceScore >= 50 ? 'badge-accent' : 'badge-alert'}`}>
+              Score {experienceScore}/100
             </span>
           )}
           <span className="badge badge-accent">
@@ -179,12 +170,12 @@ export function AIHeroCard({
               display: 'flex',
               alignItems: 'flex-start',
               gap: 8,
-              fontSize: '0.82rem',
-              color: 'var(--color-text-secondary)',
+              fontSize: '0.8125rem',
+              color: 'var(--text-secondary)',
               lineHeight: 1.5,
             }}
           >
-            <span style={{ color: 'var(--color-accent-glow)', marginTop: 2, flexShrink: 0 }} aria-hidden="true">✦</span>
+            <span style={{ color: 'var(--beacon)', marginTop: 2, flexShrink: 0 }} aria-hidden="true">✦</span>
             {bullet}
           </motion.li>
         ))}

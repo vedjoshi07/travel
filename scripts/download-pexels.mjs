@@ -1,12 +1,20 @@
 /**
  * Downloads Pexels images for all 12 places in MOCK_PLACES.
  * Run: node scripts/download-pexels.mjs
+ *
+ * Reads the API key from NEXT_PUBLIC_PEXELS_API_KEY so the source tree
+ * doesn't carry secrets. Provide it via `export NEXT_PUBLIC_PEXELS_API_KEY=...`
+ * before running, or write it to `.env.local`.
  */
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const PEXELS_API_KEY = 'SK0CN8f7zUUXBKT9C7fcZVrCRSbPKMrOErMpwbSpaS5CqVsTeKMIqF7N';
+const PEXELS_API_KEY = process.env.NEXT_PUBLIC_PEXELS_API_KEY || '';
+if (!PEXELS_API_KEY) {
+  console.error('Missing NEXT_PUBLIC_PEXELS_API_KEY. Set it in .env.local or pass via env.');
+  process.exit(1);
+}
 const PEXELS_SEARCH = 'https://api.pexels.com/v1/search';
 
 const PLACES = [
